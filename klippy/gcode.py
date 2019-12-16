@@ -211,8 +211,10 @@ class GCodeParser:
             params = { parts[i]: parts[i+1].strip()
                        for i in range(0, len(parts), 2) }
             params['#original'] = origline
+            line_number = None
             if parts and parts[0] == 'N':
                 # Skip line number at start of command
+                line_number = parts[1]  # save the line number
                 del parts[:2]
             if not parts:
                 # Treat empty line as empty command
@@ -235,7 +237,10 @@ class GCodeParser:
                 self.respond_error(msg)
                 if not need_ack:
                     raise
-            self.ack()
+            if line_number:
+                self.ack(str(line_number))
+            else:
+                self.ack()
     m112_r = re.compile('^(?:[nN][0-9]+)?\s*[mM]112(?:\s|$)')
     def _process_data(self, eventtime):
         # Read input, separate by newline, and add to pending_commands
