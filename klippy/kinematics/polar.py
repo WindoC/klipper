@@ -9,7 +9,8 @@ import stepper, homing
 class PolarKinematics:
     def __init__(self, toolhead, config):
         # Setup axis steppers
-        stepper_bed = stepper.PrinterStepper(config.getsection('stepper_bed'))
+        stepper_bed = stepper.PrinterStepper(config.getsection('stepper_bed'),
+                                             units_in_radians=True)
         rail_arm = stepper.PrinterRail(config.getsection('stepper_arm'))
         rail_z = stepper.LookupMultiRail(config.getsection('stepper_z'))
         stepper_bed.setup_itersolve('polar_stepper_alloc', 'a')
@@ -36,9 +37,7 @@ class PolarKinematics:
         stepper_bed.set_max_jerk(max_halt_velocity, max_accel)
         rail_arm.set_max_jerk(max_halt_velocity, max_accel)
         rail_z.set_max_jerk(max_halt_velocity, max_accel)
-    def get_steppers(self, flags=""):
-        if flags == "Z":
-            return self.rails[1].get_steppers()
+    def get_steppers(self):
         return list(self.steppers)
     def calc_tag_position(self):
         bed_angle = self.steppers[0].get_tag_position()

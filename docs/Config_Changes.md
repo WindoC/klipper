@@ -6,6 +6,23 @@ All dates in this document are approximate.
 
 # Changes
 
+20200109:  The bed_mesh module now references the probe's location
+in for the mesh configuration.  As such, some configuration options
+have been renamed to more accurately reflect their intended
+functionality.  For rectangular beds, `min_point` and `max_point`
+have been renamed to `mesh_min` and `mesh_max` respectively.  For
+round beds, `bed_radius` has been renamed to `mesh_radius`.  A new
+`mesh_origin` option has also been added for round beds.  Note that
+these changes are also incompatible with previously saved mesh profiles.
+If an incompatible profile is detected it will be ignored and scheduled
+for removal.  The removal process can be completed by issuing the
+SAVE_CONFIG command. The user will need to re-calibrate each profile.
+
+20191218: The display config section no longer supports "lcd_type:
+st7567".  Use the "uc1701" display type instead - set "lcd_type:
+uc1701" and change the "rs_pin: some_pin" to "rst_pin: some_pin".  It
+may also be necessary to add a "contrast: 60" config setting.
+
 20191210: The builtin T0, T1, T2, ... commands have been removed.  The
 extruder activate_gcode and deactivate_gcode config options have been
 removed.  If these commands (and scripts) are needed then define

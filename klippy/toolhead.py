@@ -17,6 +17,7 @@ class Move:
         self.start_pos = tuple(start_pos)
         self.end_pos = tuple(end_pos)
         self.accel = toolhead.max_accel
+        self.timing_callbacks = []
         velocity = min(speed, toolhead.max_velocity)
         self.is_kinematic_move = True
         self.axes_d = axes_d = [end_pos[i] - start_pos[i] for i in (0, 1, 2, 3)]
@@ -112,6 +113,10 @@ class MoveQueue:
         self.junction_flush = LOOKAHEAD_FLUSH_TIME
     def set_flush_time(self, flush_time):
         self.junction_flush = flush_time
+    def get_last(self):
+        if self.queue:
+            return self.queue[-1]
+        return None
     def flush(self, lazy=False):
         self.junction_flush = LOOKAHEAD_FLUSH_TIME
         update_flush_count = lazy
@@ -314,6 +319,8 @@ class ToolHead:
                 self.extruder.move(next_move_time, move)
             next_move_time = (next_move_time + move.accel_t
                               + move.cruise_t + move.decel_t)
+            for cb in move.timing_callbacks:
+                cb(next_move_time)
         # Generate steps for moves
         if self.special_queuing_state:
             self._update_drip_move_time(next_move_time)
@@ -434,7 +441,7 @@ class ToolHead:
                 continue
             npt = min(self.print_time + DRIP_SEGMENT_TIME, next_print_time)
             self._update_move_time(npt)
-    def drip_move(self, newpos, speed):
+    def drip_move(self, newpos, speed, drip_completion):
         # Transition from "Flushed"/"Priming"/main state to "Drip" state
         self.move_queue.flush()
         self.special_queuing_state = "Drip"
@@ -442,7 +449,7 @@ class ToolHead:
         self.reactor.update_timer(self.flush_timer, self.reactor.NEVER)
         self.move_queue.set_flush_time(self.buffer_time_high)
         self.idle_flush_print_time = 0.
-        self.drip_completion = self.reactor.completion()
+        self.drip_completion = drip_completion
         # Submit move
         try:
             self.move(newpos, speed)
@@ -457,8 +464,6 @@ class ToolHead:
             self.trapq_free_moves(self.trapq, self.reactor.NEVER)
         # Exit "Drip" state
         self.flush_step_generation()
-    def signal_drip_mode_end(self):
-        self.drip_completion.complete(True)
     # Misc commands
     def stats(self, eventtime):
         for m in self.all_mcus:
@@ -507,6 +512,12 @@ class ToolHead:
             self.kin_flush_times.append(delay)
         new_delay = max(self.kin_flush_times + [0.])
         self.kin_flush_delay = new_delay
+    def register_lookahead_callback(self, callback):
+        last_move = self.move_queue.get_last()
+        if last_move is None:
+            callback(self.get_last_move_time())
+            return
+        last_move.timing_callbacks.append(callback)
     def note_kinematic_activity(self, kin_time):
         self.last_kin_move_time = max(self.last_kin_move_time, kin_time)
     def get_max_velocity(self):
