@@ -1,6 +1,6 @@
 # Code for coordinating events on the printer toolhead
 #
-# Copyright (C) 2016-2019  Kevin O'Connor <kevin@koconnor.net>
+# Copyright (C) 2016-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import math, logging, importlib
@@ -71,10 +71,12 @@ class Move:
         sin_theta_d2 = math.sqrt(0.5*(1.0-junction_cos_theta))
         R = (self.toolhead.junction_deviation * sin_theta_d2
              / (1. - sin_theta_d2))
+        # Approximated circle must contact moves no further away than mid-move
         tan_theta_d2 = sin_theta_d2 / math.sqrt(0.5*(1.0+junction_cos_theta))
         move_centripetal_v2 = .5 * self.move_d * tan_theta_d2 * self.accel
         prev_move_centripetal_v2 = (.5 * prev_move.move_d * tan_theta_d2
                                     * prev_move.accel)
+        # Apply limits
         self.max_start_v2 = min(
             R * self.accel, R * prev_move.accel,
             move_centripetal_v2, prev_move_centripetal_v2,
@@ -181,6 +183,7 @@ class MoveQueue:
 
 MIN_KIN_TIME = 0.100
 MOVE_BATCH_TIME = 0.500
+SDS_CHECK_TIME = 0.001 # step+dir+step filter in stepcompress.c
 
 DRIP_SEGMENT_TIME = 0.050
 DRIP_TIME = 0.100
@@ -234,7 +237,7 @@ class ToolHead:
         self.print_stall = 0
         self.drip_completion = None
         # Kinematic step generation scan window time tracking
-        self.kin_flush_delay = 0.
+        self.kin_flush_delay = SDS_CHECK_TIME
         self.kin_flush_times = []
         self.last_kin_flush_time = self.last_kin_move_time = 0.
         # Setup iterative solver
@@ -510,7 +513,7 @@ class ToolHead:
             self.kin_flush_times.pop(self.kin_flush_times.index(old_delay))
         if delay:
             self.kin_flush_times.append(delay)
-        new_delay = max(self.kin_flush_times + [0.])
+        new_delay = max(self.kin_flush_times + [SDS_CHECK_TIME])
         self.kin_flush_delay = new_delay
     def register_lookahead_callback(self, callback):
         last_move = self.move_queue.get_last()
