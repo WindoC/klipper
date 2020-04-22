@@ -16,8 +16,8 @@ class JamSensor:
         self.buttons = self.printer.try_load_module(config, "buttons")
         self.buttons.register_buttons( [config.get("pin")], self._signal_handler )
         self.timer = config.getfloat( "timer", 1.0, above=0.0 )
-        #self.extruder_index = int( config.getint("extruder_index", 0))
-        self.extruder = self.printer.lookup_object( config.get("extruder", "extruder") )
+        self.extruder_name = config.get("extruder", None)
+        self.extruder = None
         self.base_usage = config.getfloat( "base_usage", None, above=0.0)
         self.slow_usage = config.getfloat("slow_usage", 0.0) / 100.0
         self.slow_speed = config.getfloat( "slow_speed", 10.0, above=0.0 ) / (60.0 * 100.0)
@@ -27,7 +27,6 @@ class JamSensor:
         self.slow_speed_resume = config.getfloat("slow_speed_resume", 1.0, above=0.0) / (60.0 * 100.0)  # Zore mean not resume
         self.filament_usage_last = 0.0
         self.timer_usage_last = 0.0
-        self.toolhead = None
         self.pause_resume = None
         self.enable = False
         self.debug = False
@@ -41,7 +40,7 @@ class JamSensor:
         self.printer.register_event_handler( "klippy:ready", self._handle_ready )
 
     def _handle_ready(self):
-        self.toolhead = self.printer.lookup_object( "toolhead" )
+        self.extruder = self.printer.lookup_object( self.extruder_name )
         if self.base_usage is None:
             logging.exception("base_usage must defined")
             self.enable = False
@@ -124,10 +123,8 @@ class JamSensor:
 
     def get_filament_usage(self):
         theout = 0.0
-        if self.toolhead:
+        if self.extruder:
             theout = self.extruder.stepper.get_commanded_position()
-            #theout = self.toolhead.get_position()[ 3 + self.extruder_index ]
-            # theout = self.gcode.base_position[3+self.extruder_index]
         return float(theout)
 
     def _exec_gcode(self, script):
@@ -148,8 +145,8 @@ class JamSensor:
         self.enable = True if self.gcode.get_int( "ENABLE", params, 1 if self.enable else 0 ) == 1 else False
         self.debug = True if self.gcode.get_int( "DEBUG", params, 1 if self.debug else 0 ) == 1 else False
         self.action = True if self.gcode.get_int( "ACTION", params, 1 if self.action else 0 ) == 1 else False
-        self.gcode.respond_info( "%s(%s): timer = %.2f | base_usage = %.2f | slow_usage = %.2f | jam_usage = %.2f | slow_speed = %.2f | slow_speed_resume = %.2f | enable = %s | debug = %s | action = %s" 
-            % ( self.mname, self.name, self.timer self.base_usage, self.slow_usage * 100.0, self.jam_usage * 100.0, self.slow_speed * 100.0 * 60.0, self.slow_speed_resume * 100.0 * 60.0, self.enable, self.debug, self.action, ) )
+        self.gcode.respond_info( "%s(%s): timer = %.2f | base_usage = %.2f | slow_usage = %.2f | jam_usage = %.2f | slow_speed = %.2f | slow_speed_resume = %.2f | enable = %s | debug = %s | action = %s"
+            % ( self.mname, self.name, self.timer, self.base_usage, self.slow_usage * 100.0, self.jam_usage * 100.0, self.slow_speed * 100.0 * 60.0, self.slow_speed_resume * 100.0 * 60.0, self.enable, self.debug, self.action, ) )
         # reset some counter
         self.timer_usage_last = self.filament_usage_last = self.get_filament_usage()
 
