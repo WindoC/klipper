@@ -15,9 +15,8 @@ If the usage reached jam%(setting jam_usage) will trigger the jam/pause action.
     pin: ar22
     timer: 1.0
     # timer ; in sec ; setup how often the system check the usage ; default = 1.0
-    extruder_index: 0
-    # sequence of the extruder to monitor ;
-    # 0 mean 1st extruder , 1 mean 2nd extruder
+    extruder: extruder
+    # name of extruder
     base_usage: 3.85
     # base_usage ; in mm (must define) for one up/down cycle
     slow_usage: 200.0
