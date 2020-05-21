@@ -13,7 +13,7 @@ class JamSensor:
         self.printer = config.get_printer()
         self.gcode = self.printer.lookup_object("gcode")
         self.reactor = self.printer.get_reactor()
-        self.buttons = self.printer.load_module(config, "buttons")
+        self.buttons = self.printer.load_object(config, "buttons")
         self.buttons.register_buttons( [config.get("pin")], self._signal_handler )
         self.timer = config.getfloat( "timer", 1.0, above=0.0 )
         self.extruder_name = config.get("extruder", None)
