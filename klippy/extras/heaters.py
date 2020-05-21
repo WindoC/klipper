@@ -298,6 +298,11 @@ class PrinterHeaters:
             for gcode_id, sensor in sorted(self.gcode_id_to_sensor.items()):
                 cur, target = sensor.get_temp(eventtime)
                 out.append("%s:%.1f /%.1f" % (gcode_id, cur, target))
+                # Add output the % of power
+                if gcode_id.startswith( 'B' ) :
+                    out.append("B@:%d " % (sensor.last_pwm_value * 128))
+                else:
+                    out.append(("@%s:%d " % (gcode_id,(sensor.last_pwm_value * 128))).replace("T",""))
         if not out:
             return "T:0"
         return " ".join(out)
