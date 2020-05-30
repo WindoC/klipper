@@ -281,7 +281,7 @@ class GCodeParser:
                 cmd = parts[1] + parts[2].strip()
             elif numparts >= 5 and parts[1] == 'N':
                 # Skip line number at start of command
-                line_number = parts[1]  # save the line number
+                line_number = parts[2]  # save the line number
                 cmd = parts[3] + parts[4].strip()
             # Build gcode "params" dictionary
             params = { parts[i]: parts[i+1].strip()
