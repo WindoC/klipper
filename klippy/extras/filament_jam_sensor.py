@@ -95,7 +95,7 @@ class JamSensor:
                 self.gcode.respond_info( "%s(%s): detect jam" % (self.mname, self.name) )
                 if self.action:
                     # self.pause_resume.send_pause_command()
-                    self._exec_gcode("PAUSE")
+                    # self._exec_gcode("PAUSE")
                     if self.jam_gcode:
                         self._exec_gcode(self.jam_gcode)
             self.jam_triggered = True
