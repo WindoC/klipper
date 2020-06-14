@@ -99,10 +99,7 @@ class JamSensor:
                     if self.jam_gcode:
                         self._exec_gcode(self.jam_gcode)
             self.jam_triggered = True
-        elif (
-            self.slow_usage > 0.0
-            and temp_rate > self.slow_usage
-        ):
+        elif (self.slow_usage > 0.0 and temp_rate > self.slow_usage ):
             # detect slow
             if not self.slow_triggered:
                 if self.debug:
