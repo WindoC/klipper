@@ -276,12 +276,10 @@ class GCodeParser:
             parts = self.args_r.split(line.upper())
             numparts = len(parts)
             cmd = ""
-            line_number = None
             if numparts >= 3 and parts[1] != 'N':
                 cmd = parts[1] + parts[2].strip()
             elif numparts >= 5 and parts[1] == 'N':
                 # Skip line number at start of command
-                line_number = parts[1]  # save the line number
                 cmd = parts[3] + parts[4].strip()
             # Build gcode "params" dictionary
             params = { parts[i]: parts[i+1].strip()
@@ -304,10 +302,7 @@ class GCodeParser:
                 self._respond_error(msg)
                 if not need_ack:
                     raise
-            if line_number:
-                gcmd.ack(str(line_number))
-            else:
-                gcmd.ack()
+            gcmd.ack()
     m112_r = re.compile('^(?:[nN][0-9]+)?\s*[mM]112(?:\s|$)')
     def _process_data(self, eventtime):
         # Read input, separate by newline, and add to pending_commands
