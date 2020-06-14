@@ -19,22 +19,14 @@ class JamSensor:
         self.extruder_name = config.get("extruder", None)
         self.extruder = None
         self.base_usage = config.getfloat( "base_usage", None, above=0.0)
-        self.slow_usage = config.getfloat("slow_usage", 0.0) / 100.0
-        self.slow_speed = config.getfloat( "slow_speed", 10.0, above=0.0 ) / (60.0 * 100.0)
-        self.slow_gcode = config.get("slow_gcode", None)
-        self.jam_usage = config.getfloat("jam_usage", 400.0, above=100.0) / 100.0
         self.jam_gcode = config.get("jam_gcode", None)
-        self.slow_speed_resume = config.getfloat("slow_speed_resume", 1.0, above=0.0) / (60.0 * 100.0)  # Zore mean not resume
         self.filament_usage_last = 0.0
         self.timer_usage_last = 0.0
         self.pause_resume = None
         self.enable = False
         self.debug = False
         self.action = True
-        self.slow_triggered = False
         self.jam_triggered = False
-        self.slowest_speed = 0.5 / 60.0
-        self.full_speed = 1.0 / 60.0
         self.cmd_SET_FILAMENT_JAM_SENSOR_help = "Set param of FILAMENT_JAM_SENSOR"
         self.gcode.register_mux_command( "SET_FILAMENT_JAM_SENSOR", "SENSOR", self.name, self.cmd_SET_FILAMENT_JAM_SENSOR, desc=self.cmd_SET_FILAMENT_JAM_SENSOR_help, )
         self.printer.register_event_handler( "klippy:ready", self._handle_ready )
@@ -43,9 +35,6 @@ class JamSensor:
         self.extruder = self.printer.lookup_object( self.extruder_name )
         if self.base_usage is None:
             logging.exception("base_usage must defined")
-            self.enable = False
-        elif ( self.slow_usage > 0.0 and self.slow_usage >= self.jam_usage ):
-            logging.exception("must slow_usage < jam_usage")
             self.enable = False
         else:
             self.filament_usage_last = self.get_filament_usage()
@@ -66,30 +55,16 @@ class JamSensor:
             if self.debug:
                 self.gcode.respond_info( "%s(%s): %.2f %% ( %.2f / %.2f )" % ( self.mname, self.name, delta_usage / self.base_usage * 100.0, delta_usage, self.base_usage, ) )
                 logging.debug( "%s(%s): _signal_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
-            if ( delta_usage > 0 and self.check_jam(eventtime, delta_usage) and self.slow_usage > 0.0 and self.gcode.speed_factor < self.full_speed ):  # won't run check_jam if delta_usage<0
-                temp_speed = self.gcode.speed_factor + self.slow_speed_resume
-                self.gcode.speed_factor = temp_speed if temp_speed < self.full_speed else self.full_speed
-                self.gcode.respond_info( "speed_factor:%d" % ( self.gcode.speed_factor * 60.0 * 100.0 ) )
-            self.slow_triggered = False
-            self.jam_triggered = False
+            if self.jam_triggered:
+                self.jam_triggered = False  # reset jam_triggered if it moving
+                if self.debug:
+                    self.gcode.respond_info( "%s(%s): jam_triggered = False" % ( self.mname, self.name, ) )
 
     def _timer_handler(self, eventtime):
         if self.enable:
             new_usage = self.get_filament_usage()
             delta_usage = new_usage - self.filament_usage_last
-            if self.debug:
-                logging.debug( "%s(%s): _timer_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
-            if ( delta_usage > 0 and self.timer_usage_last != new_usage ):  # ignore when it's not move
-                self.check_jam(eventtime, delta_usage)
-            self.timer_usage_last = new_usage
-        return eventtime + self.timer
-
-    def check_jam(self, eventtime, delta_usage):
-        theresult = False
-        temp_rate = delta_usage / self.base_usage
-        if temp_rate > self.jam_usage:
-            # detect jam
-            if not self.jam_triggered:
+            if self.jam_triggered and self.timer_usage_last != new_usage:   # ignore when it's not move
                 if self.debug:
                     self.gcode.respond_info( "%s(%s): detect jam | %.2f %% ( %.2f / %.2f )" % ( self.mname, self.name, delta_usage / self.base_usage * 100.0, delta_usage, self.base_usage, ) )
                 self.gcode.respond_info( "%s(%s): detect jam" % (self.mname, self.name) )
@@ -98,25 +73,15 @@ class JamSensor:
                     # self._exec_gcode("PAUSE")
                     if self.jam_gcode:
                         self._exec_gcode(self.jam_gcode)
-            self.jam_triggered = True
-        elif (self.slow_usage > 0.0 and temp_rate > self.slow_usage ):
-            # detect slow
-            if not self.slow_triggered:
+                self.filament_usage_last = new_usage  # reset the filament_usage_last to avoide repeat trigger
+                jam_triggered = False
+            else:
                 if self.debug:
-                    self.gcode.respond_info( "%s(%s): detect slow | %.2f %% ( %.2f / %.2f )" % ( self.mname, self.name, delta_usage / self.base_usage * 100.0, delta_usage, self.base_usage, ) )
-                self.gcode.respond_info( "%s(%s): detect slow" % (self.mname, self.name) )
-                if self.action:
-                    if ( self.gcode.speed_factor > self.slowest_speed ):
-                        temp_speed = self.gcode.speed_factor - self.slow_speed
-                        self.gcode.speed_factor = temp_speed if temp_speed > self.slowest_speed else self.slowest_speed
-                        self.gcode.respond_info( "speed_factor:%d" % ( self.gcode.speed_factor * 60.0 * 100.0 ) )
-                    if self.slow_gcode:
-                        self._exec_gcode(self.slow_gcode)
-            self.slow_triggered = True
-        elif temp_rate > 0.25 and temp_rate < ( 0.5 + self.slow_usage / 2.0 ):
-            # normal
-            theresult = True
-        return theresult
+                    logging.debug( "%s(%s): _timer_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
+                if ( delta_usage > base_usage and self.timer_usage_last != new_usage ):  # ignore when it's not move
+                    self.jam_triggered = True
+            self.timer_usage_last = new_usage
+        return eventtime + self.timer
 
     def get_filament_usage(self):
         theout = 0.0
@@ -133,17 +98,11 @@ class JamSensor:
     def cmd_SET_FILAMENT_JAM_SENSOR(self, gcmd):
         self.timer = gcmd.get_float( "TIMER", self.timer, minval=0.0 )
         self.base_usage = gcmd.get_float( "BASE_USAGE", self.base_usage, minval=0.0, )
-        self.slow_usage = gcmd.get_float( "SLOW_USAGE", self.slow_usage * 100.0, ) / 100.0
-        temp_jam_usage = gcmd.get_float( "JAM_USAGE", self.jam_usage * 100.0, minval=200.0, ) / 100.0
-        if ( temp_jam_usage is not None and temp_jam_usage > self.slow_usage ):
-            self.jam_usage = temp_jam_usage
-        self.slow_speed_resume = gcmd.get_float( "SLOW_SPEED_RESUME", self.slow_speed_resume * 100.0 * 60.0, minval=0.0, ) / (60.0 * 100.0)
-        self.slow_speed = gcmd.get_float( "SLOW_SPEED", self.slow_speed * 100.0 * 60.0, minval=0.0, ) / (60.0 * 100.0)
         self.enable = True if gcmd.get_int( "ENABLE", 1 if self.enable else 0 ) == 1 else False
         self.debug = True if gcmd.get_int( "DEBUG", 1 if self.debug else 0 ) == 1 else False
         self.action = True if gcmd.get_int( "ACTION", 1 if self.action else 0 ) == 1 else False
-        gcmd.respond_info( "%s(%s): timer = %.2f | base_usage = %.2f | slow_usage = %.2f | jam_usage = %.2f | slow_speed = %.2f | slow_speed_resume = %.2f | enable = %s | debug = %s | action = %s"
-            % ( self.mname, self.name, self.timer, self.base_usage, self.slow_usage * 100.0, self.jam_usage * 100.0, self.slow_speed * 100.0 * 60.0, self.slow_speed_resume * 100.0 * 60.0, self.enable, self.debug, self.action, ) )
+        gcmd.respond_info( "%s(%s): timer = %.2f | base_usage = %.2f | enable = %s | debug = %s | action = %s"
+            % ( self.mname, self.name, self.timer, self.base_usage, self.enable, self.debug, self.action, ) )
         # reset some counter
         self.timer_usage_last = self.filament_usage_last = self.get_filament_usage()
 

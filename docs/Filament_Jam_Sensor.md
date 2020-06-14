@@ -2,8 +2,7 @@ This document describes Filament Jam Sensor module. Hardware used for developing
 
 ## How does it work?
 Filaments spins the wheel in the sensor, the sensor goes LOW to HIGH. The module calculates the filament usage between a LOW/HIGH cycle compare with base line(setting base_usage) usage.
-If the usage reached slow%(setting slow_usage) will trigger the slow down action.
-If the usage reached jam%(setting jam_usage) will trigger the jam/pause action.
+If the usage reached base_usage (mm) and no signal from PIN within timer (s) will trigger the jam/pause action.
 
 ## Configuration
     # Pause/Resume module must define
@@ -16,33 +15,18 @@ If the usage reached jam%(setting jam_usage) will trigger the jam/pause action.
     timer: 1.0
     # timer ; in sec ; setup how often the system check the usage ; default = 1.0
     extruder: extruder
-    # name of extruder
+    # name of extruder ( , extruder1 , extruder2 or etc ... )
     base_usage: 3.85
     # base_usage ; in mm (must define) for one up/down cycle
-    slow_usage: 200.0
-    # slow_usage ; in % (must define) (must > 100.0) for system detect in slow
-    # and will trigger slow_speed & slow_gcode
-    # 0 to disable slow down function.
-    slow_speed: 10.0
-    # slow_speed ; in % that the printer (speed_factor) will show down
-    # default 10.0
-    slow_speed_resume: 1.0
-    # slow_speed_resume ; in % that the printer (speed_factor) will speed up
-    # default 1.0
-    slow_gcode: GET_POSITION
-    # gcode that will run at slow_usage triggered
-    jam_usage: 400.0
-    # jam_usage ; in % (must define) (must > 100.0) (must > slow_usage) for system
     # detect in Jam or filament run out and will trigger PAUSE & jam_gcode
     jam_gcode: M300
     # gcode that will run at jam_usage triggered
 
 ## Commands
   - `SET_FILAMENT_JAM_SENSOR SENSOR=<sensor name> [TIMER=<sec>] [BASE_USAGE=<mm>]
-    [SLOW_USAGE=<%>] [SLOW_SPEED=<slow%>] [SLOW_SPEED_RESUME=<fast%>]
-    [JAM_USAGE=<%>] [ACTION=<0|1>] [ENABLE=<0|1>] [DEBUG=<0|1>]
-    `:  Configures the [filament_jam_sensor] module. TIMER, BASE_USAGE, SLOW_USAGE,
-    SLOW_SPEED, SLOW_SPEED_RESUME, JAM_USAGE correspond to same name in configuration.
+    [ACTION=<0|1>] [ENABLE=<0|1>] [DEBUG=<0|1>]
+    `:  Configures the [filament_jam_sensor] module. TIMER, BASE_USAGE, 
+	correspond to same name in configuration.
     ACTION default is 1 and set to 0 will bypass the action of slow down/speed up,
     pause and gcode execute defined in the config. ENABLE default is 1 and set to 0
     will disable the checking logic of this module. DEBUG default is 0 and set to 1
