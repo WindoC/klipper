@@ -81,7 +81,7 @@ class JamSensor:
                 if ( delta_usage > ( self.base_usage * 1.5 ) and self.timer_usage_last != new_usage ):  # ignore when it's not move
                     self.jam_triggered = True
                     if self.debug:
-                        self.gcode.respond_info( "%s(%s): jam_triggered = True" % ( self.mname, self.name, ) )
+                        self.gcode.respond_info( "%s(%s): jam_triggered = True | %.2f %% ( %.2f / %.2f )" % ( self.mname, self.name, delta_usage / self.base_usage * 100.0, delta_usage, self.base_usage, ) )
             self.timer_usage_last = new_usage
         return eventtime + self.timer
 
