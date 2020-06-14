@@ -74,12 +74,14 @@ class JamSensor:
                     if self.jam_gcode:
                         self._exec_gcode(self.jam_gcode)
                 self.filament_usage_last = new_usage  # reset the filament_usage_last to avoide repeat trigger
-                jam_triggered = False
+                self.jam_triggered = False
             else:
                 if self.debug:
                     logging.debug( "%s(%s): _timer_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
-                if ( delta_usage > self.base_usage and self.timer_usage_last != new_usage ):  # ignore when it's not move
+                if ( delta_usage > ( self.base_usage * 1.5 ) and self.timer_usage_last != new_usage ):  # ignore when it's not move
                     self.jam_triggered = True
+                    if self.debug:
+                        self.gcode.respond_info( "%s(%s): jam_triggered = True" % ( self.mname, self.name, ) )
             self.timer_usage_last = new_usage
         return eventtime + self.timer
 
