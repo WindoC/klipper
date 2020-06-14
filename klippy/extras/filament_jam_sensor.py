@@ -78,7 +78,7 @@ class JamSensor:
             else:
                 if self.debug:
                     logging.debug( "%s(%s): _timer_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
-                if ( delta_usage > base_usage and self.timer_usage_last != new_usage ):  # ignore when it's not move
+                if ( delta_usage > self.base_usage and self.timer_usage_last != new_usage ):  # ignore when it's not move
                     self.jam_triggered = True
             self.timer_usage_last = new_usage
         return eventtime + self.timer
