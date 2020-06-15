@@ -5,7 +5,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
-import icons, font8x14, extras.bus
+import font8x14, extras.bus
 
 BACKGROUND_PRIORITY_CLOCK = 0x7fffffff00000000
 
@@ -23,10 +23,6 @@ class DisplayBase:
         self.font = [self._swizzle_bits(bytearray(c))
                      for c in font8x14.VGA_FONT]
         self.icons = {}
-        for name, icon in icons.Icons16x16.items():
-            top1, bot1 = self._swizzle_bits([d >> 8 for d in icon])
-            top2, bot2 = self._swizzle_bits(icon)
-            self.icons[name] = (top1 + top2, bot1 + bot2)
     def flush(self):
         # Find all differences in the framebuffers and send them to the chip
         for new_data, old_data, page in self.all_framebuffers:
@@ -53,14 +49,23 @@ class DisplayBase:
                 self.send(new_data[col_pos:col_pos+count], is_data=True)
             old_data[:] = new_data
     def _swizzle_bits(self, data):
-        # Convert 8x16 data into display col/row order
-        bits_top = [0] * 8
-        bits_bot = [0] * 8
+        # Convert from "rows of pixels" format to "columns of pixels"
+        top = bot = 0
         for row in range(8):
-            for col in range(8):
-                bits_top[col] |= ((data[row] >> (8 - col)) & 1) << row
-                bits_bot[col] |= ((data[row + 8] >> (8 - col)) & 1) << row
-        return (bits_top, bits_bot)
+            spaced = (data[row] * 0x8040201008040201) & 0x8080808080808080
+            top |= spaced >> (7 - row)
+            spaced = (data[row + 8] * 0x8040201008040201) & 0x8080808080808080
+            bot |= spaced >> (7 - row)
+        bits_top = [(top >> s) & 0xff for s in range(0, 64, 8)]
+        bits_bot = [(bot >> s) & 0xff for s in range(0, 64, 8)]
+        return (bytearray(bits_top), bytearray(bits_bot))
+    def set_glyphs(self, glyphs):
+        for glyph_name, glyph_data in glyphs.items():
+            icon = glyph_data.get('icon16x16')
+            if icon is not None:
+                top1, bot1 = self._swizzle_bits(icon[0])
+                top2, bot2 = self._swizzle_bits(icon[1])
+                self.icons[glyph_name] = (top1 + top2, bot1 + bot2)
     def write_text(self, x, y, data):
         if x + len(data) > 16:
             data = data[:16 - min(x, 16)]
@@ -72,17 +77,16 @@ class DisplayBase:
             page_top[pix_x:pix_x+8] = bits_top
             page_bot[pix_x:pix_x+8] = bits_bot
             pix_x += 8
-    def write_graphics(self, x, y, row, data):
-        if x + len(data) > 16:
-            data = data[:16 - min(x, 16)]
-        page = self.vram[y * 2 + (row >= 8)]
-        bit = 1 << (row % 8)
+    def write_graphics(self, x, y, data):
+        if x >= 16 or y >= 4 or len(data) != 16:
+            return
+        bits_top, bits_bot = self._swizzle_bits(data)
         pix_x = x * 8
-        for bits in data:
-            for col in range(8):
-                if (bits << col) & 0x80:
-                    page[pix_x] ^= bit
-                pix_x += 1
+        page_top = self.vram[y * 2]
+        page_bot = self.vram[y * 2 + 1]
+        for i in range(8):
+            page_top[pix_x + i] ^= bits_top[i]
+            page_bot[pix_x + i] ^= bits_bot[i]
     def write_glyph(self, x, y, glyph_name):
         icon = self.icons.get(glyph_name)
         if icon is not None and x < 15:
