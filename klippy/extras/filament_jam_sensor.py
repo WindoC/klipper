@@ -61,7 +61,7 @@ class JamSensor:
                     self.gcode.respond_info( "%s(%s): jam_triggered = False" % ( self.mname, self.name, ) )
 
     def _timer_handler(self, eventtime):
-        add_timer = 0.0
+        add_timer = self.timer
         if self.enable:
             new_usage = self.get_filament_usage()
             delta_usage = new_usage - self.filament_usage_last
@@ -81,11 +81,11 @@ class JamSensor:
                     logging.debug( "%s(%s): _timer_handler triggered | delta_usage = %s", self.mname, self.name, delta_usage, )
                 if ( delta_usage > ( self.base_usage * 1.5 ) and self.timer_usage_last != new_usage ):  # ignore when it's not move
                     self.jam_triggered = True
-                    add_timer = 2.0
+                    add_timer = self.timer * 3.0  # give x3 time wait for movement.
                     if self.debug:
                         self.gcode.respond_info( "%s(%s): jam_triggered = True | %.2f %% ( %.2f / %.2f )" % ( self.mname, self.name, delta_usage / self.base_usage * 100.0, delta_usage, self.base_usage, ) )
             self.timer_usage_last = new_usage
-        return eventtime + self.timer + add_timer
+        return eventtime + add_timer
 
     def get_filament_usage(self):
         theout = 0.0
