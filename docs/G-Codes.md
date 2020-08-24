@@ -60,6 +60,11 @@ Klipper also supports the following standard G-Code commands if the
 - Set SD position: `M26 S<offset>`
 - Report SD print status: `M27`
 
+In addition, the following extended commands are availble when the
+"virtual_sdcard" config section is enabled.
+- Load a file and start SD print: `SDCARD_PRINT_FILE FILENAME=<filename>`
+- Unload file and clear SD state:  `SDCARD_RESET_FILE`
+
 ## G-Code arcs
 
 The following standard G-Code commands are available if a "gcode_arcs"
@@ -239,6 +244,13 @@ The following command is available when an "output_pin" config section
 is enabled:
 - `SET_PIN PIN=config_name VALUE=<value>`
 
+## Manually Controlled Fans Commands
+
+The following command is available when a "fan_generic" config section
+is enabled:
+- `SET_FAN_SPEED FAN=config_name SPEED=<speed>` This command sets
+  the speed of a fan. <speed> must be between 0.0 and 1.0.
+
 ## Neopixel and Dotstar Commands
 
 The following command is available when "neopixel" or "dotstar" config
@@ -258,8 +270,9 @@ sections are enabled:
 
 The following commands are available when a "servo" config section is
 enabled:
-- `SET_SERVO SERVO=config_name [WIDTH=<seconds>] [ENABLE=<0|1>]`
-- `SET_SERVO SERVO=config_name [ANGLE=<degrees>] [ENABLE=<0|1>]`
+- `SET_SERVO SERVO=config_name [ANGLE=<degrees> | WIDTH=<seconds>]`:
+  Set the servo position to the given angle (in degrees) or pulse
+  width (in seconds). Use `WIDTH=0` to disable the servo output.
 
 ## Manual stepper Commands
 
@@ -611,3 +624,12 @@ been enabled:
     of SHAPER_TYPE_X and SHAPER_TYPE_Y parameters. See
     [example-extras.cfg](https://github.com/KevinOConnor/klipper/tree/master/config/example-extras.cfg)
     for more details on each of these parameters.
+
+## Temperature Fan Commands
+
+The following command is available when a "temperature_fan" config
+section is enabled:
+- `SET_TEMPERATURE_FAN_TARGET temperature_fan=<temperature_fan_name>
+  [target=<target_temperature>]`: Sets the target temperature for a
+  temperature_fan. If a target is not supplied, it is set to the
+  specified temperature in the config file.

@@ -22,7 +22,7 @@ struct timepos {
     double time, position;
 };
 
-// Find step using "false position" method
+// Find step using "false position" method (with "Illinois algorithm")
 static struct timepos
 itersolve_find_step(struct stepper_kinematics *sk, struct move *m
                     , struct timepos low, struct timepos high
@@ -39,22 +39,31 @@ itersolve_find_step(struct stepper_kinematics *sk, struct move *m
     if (high_sign == signbit(low.position))
         // The target is not in the low/high range - return low range
         return (struct timepos){ low.time, target };
+    int prev_choice = 0;
     for (;;) {
         double guess_time = ((low.time*high.position - high.time*low.position)
                              / (high.position - low.position));
-        if (fabs(guess_time - best_guess.time) <= .000000001)
-            break;
         best_guess.time = guess_time;
         best_guess.position = calc_position_cb(sk, m, guess_time);
         double guess_position = best_guess.position - target;
+        if (fabs(guess_position) <= .000000001)
+            break;
         int guess_sign = signbit(guess_position);
         if (guess_sign == high_sign) {
             high.time = guess_time;
             high.position = guess_position;
+            if (prev_choice > 0)
+                low.position *= .5;
+            prev_choice = 1;
         } else {
             low.time = guess_time;
             low.position = guess_position;
+            if (prev_choice < 0)
+                high.position *= .5;
+            prev_choice = -1;
         }
+        if (high.time - low.time <= .000000001)
+            break;
     }
     return best_guess;
 }

@@ -6,6 +6,32 @@ All dates in this document are approximate.
 
 # Changes
 
+20200816: The gcode macro `printer.gcode` object has been renamed to
+`printer.gcode_move`.  Several undocumented variables in
+`printer.toolhead` and `printer.gcode` have been removed.  See
+docs/Command_Templates.md for a list of available template variables.
+
+20200816: The gcode macro "action_" system has changed.  Replace any
+calls to `printer.gcode.action_emergency_stop()` with
+`action_emergency_stop()`, `printer.gcode.action_respond_info()` with
+`action_respond_info()`, and `printer.gcode.action_respond_error()`
+with `action_raise_error()`.
+
+20200809: The menu system has been rewritten. If the menu has been
+customized then it will be necessary to update to the new
+configuration. See config/example-menu.cfg for configuration details
+and see klippy/extras/display/menu.cfg for examples.
+
+20200731:  The behavior of the `progress` attribute reported by
+the `virtual_sdcard` printer object has changed.  Progress is no
+longer reset to 0 when a print is paused.  It will now always report
+progress based on the internal file position, or 0 if no file is
+currently loaded.
+
+20200725: The servo `enable` config parameter and the SET_SERVO
+`ENABLE` parameter have been removed.  Update any macros to use
+`SET_SERVO SERVO=my_servo WIDTH=0` to disable a servo.
+
 20200608: The LCD display support has changed the name of some
 internal "glyphs".  If a custom display layout was implemented it may
 be necessary to update to the latest glyph names (see

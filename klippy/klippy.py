@@ -48,7 +48,7 @@ Printer is shutdown
 class Printer:
     config_error = configfile.error
     command_error = homing.CommandError
-    def __init__(self, input_fd, bglogger, start_args):
+    def __init__(self, bglogger, start_args):
         self.bglogger = bglogger
         self.start_args = start_args
         self.reactor = reactor.Reactor()
@@ -58,8 +58,9 @@ class Printer:
         self.run_result = None
         self.event_handlers = {}
         self.objects = collections.OrderedDict()
-        self.objects['webhooks'] = webhooks.WebHooks(self)
-        self.objects['gcode'] = gcode.GCodeParser(self, input_fd)
+        # Init printer components that must be setup prior to config
+        for m in [gcode, webhooks]:
+            m.add_early_printer_objects(self)
     def get_start_args(self):
         return self.start_args
     def get_reactor(self):
@@ -69,6 +70,8 @@ class Printer:
             category = "ready"
         elif self.state_message == message_startup:
             category = "startup"
+        elif self.in_shutdown_state:
+            category = "shutdown"
         else:
             category = "error"
         return self.state_message, category
@@ -246,6 +249,8 @@ def main():
     opts.add_option("-I", "--input-tty", dest="inputtty",
                     default='/tmp/printer',
                     help="input tty name (default is /tmp/printer)")
+    opts.add_option("-a", "--api-server", dest="apiserver",
+                    help="api server unix domain socket filename")
     opts.add_option("-l", "--logfile", dest="logfile",
                     help="write log to file instead of stderr")
     opts.add_option("-v", action="store_true", dest="verbose",
@@ -258,9 +263,8 @@ def main():
     options, args = opts.parse_args()
     if len(args) != 1:
         opts.error("Incorrect number of arguments")
-    start_args = {'config_file': args[0], 'start_reason': 'startup'}
-
-    input_fd = bglogger = None
+    start_args = {'config_file': args[0], 'apiserver': options.apiserver,
+                  'start_reason': 'startup'}
 
     debuglevel = logging.INFO
     if options.verbose:
@@ -268,12 +272,13 @@ def main():
     if options.debuginput:
         start_args['debuginput'] = options.debuginput
         debuginput = open(options.debuginput, 'rb')
-        input_fd = debuginput.fileno()
+        start_args['gcode_fd'] = debuginput.fileno()
     else:
-        input_fd = util.create_pty(options.inputtty)
+        start_args['gcode_fd'] = util.create_pty(options.inputtty)
     if options.debugoutput:
         start_args['debugoutput'] = options.debugoutput
         start_args.update(options.dictionary)
+    bglogger = None
     if options.logfile:
         start_args['log_file'] = options.logfile
         bglogger = queuelogger.setup_bg_logging(options.logfile, debuglevel)
@@ -298,7 +303,7 @@ def main():
         if bglogger is not None:
             bglogger.clear_rollover_info()
             bglogger.set_rollover_info('versions', versions)
-        printer = Printer(input_fd, bglogger, start_args)
+        printer = Printer(bglogger, start_args)
         res = printer.run()
         if res in ['exit', 'error_exit']:
             break
