@@ -49,13 +49,10 @@ class Heater:
         # Setup output heater pin
         heater_pin = config.get('heater_pin')
         ppins = self.printer.lookup_object('pins')
-        if algo is ControlBangBang and self.max_power == 1.:
-            self.mcu_pwm = ppins.setup_pin('digital_out', heater_pin)
-        else:
-            self.mcu_pwm = ppins.setup_pin('pwm', heater_pin)
-            pwm_cycle_time = config.getfloat(
-                'pwm_cycle_time', 0.100, above=0., maxval=self.pwm_delay)
-            self.mcu_pwm.setup_cycle_time(pwm_cycle_time)
+        self.mcu_pwm = ppins.setup_pin('pwm', heater_pin)
+        pwm_cycle_time = config.getfloat('pwm_cycle_time', 0.100, above=0.,
+                                         maxval=self.pwm_delay)
+        self.mcu_pwm.setup_cycle_time(pwm_cycle_time)
         self.mcu_pwm.setup_max_duration(MAX_HEAT_TIME)
         # Load additional modules
         self.printer.load_object(config, "verify_heater %s" % (self.name,))
@@ -332,16 +329,23 @@ class PrinterHeaters:
         sensor_name = gcmd.get('SENSOR')
         if sensor_name not in self.available_sensors:
             raise gcmd.error("Unknown sensor '%s'" % (sensor_name,))
-        min_temp = gcmd.get_float('MINIMUM')
+        min_temp = gcmd.get_float('MINIMUM', float('-inf'))
+        max_temp = gcmd.get_float('MAXIMUM', float('inf'), above=min_temp)
+        if min_temp == float('-inf') and max_temp == float('inf'):
+            raise gcmd.error(
+                "Error on 'TEMPERATURE_WAIT': missing MINIMUM or MAXIMUM.")
         if self.printer.get_start_args().get('debugoutput') is not None:
             return
-        sensor = self.printer.lookup_object(sensor_name)
+        if sensor_name in self.heaters:
+            sensor = self.heaters[sensor_name]
+        else:
+            sensor = self.printer.lookup_object(sensor_name)
         toolhead = self.printer.lookup_object("toolhead")
         reactor = self.printer.get_reactor()
         eventtime = reactor.monotonic()
         while not self.printer.is_shutdown():
             temp, target = sensor.get_temp(eventtime)
-            if temp >= min_temp:
+            if temp >= min_temp and temp <= max_temp:
                 return
             print_time = toolhead.get_last_move_time()
             gcmd.respond_raw(self._get_temp(eventtime))
