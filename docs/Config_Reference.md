@@ -2032,7 +2032,7 @@ sensor_pin:
 #   name in the above list.
 ```
 
-## bme280 temperature sensor
+## BME280 temperature sensor
 
 BME280 two wire interface (I2C) environmental sensor. Note that this
 sensor is not intended for use with extruders and heater beds, but
@@ -2043,7 +2043,7 @@ that may be used to report pressure and humidity in addition to
 temperature.
 
 ```
-sensor_type: bme280
+sensor_type: BME280
 #i2c_address:
 #   Default is 118 (0x76). Some BME280 sensors have an address of 119
 #   (0x77).
@@ -2145,12 +2145,33 @@ sensor_type: temperature_mcu
 #   micro-controller specification.
 ```
 
-## RPi temperature sensor
+## Host temperature sensor
 
-CPU temperature from the Raspberry Pi running the host software.
+Temperature from the machine (eg Raspberry Pi) running the host software.
 
 ```
-sensor_type: rpi_temperature
+sensor_type: temperature_host
+#sensor_path:
+#   The path to temperature system file. The default is
+#   "/sys/class/thermal/thermal_zone0/temp" which is the temperature
+#   system file on a Raspberry Pi computer.
+```
+
+## DS18B20 temperature sensor
+
+DS18B20 is a 1-wire (w1) digital temperature sensor. Note that this sensor is not intended for use with extruders and heater beds, but rather for monitoring ambient temperature (C). These sensors have range up to 125 C, so are usable for e.g. chamber temperature monitoring. They can also function as simple fan/heater controllers. DS18B20 sensors are only supported on the "host mcu", e.g. the Raspberry Pi. The w1-gpio Linux kernel module must be installed.
+
+```
+sensor_type: DS18B20
+serial_no:
+#   Each 1-wire device has a unique serial number used to identify the device,
+#   usually in the format 28-031674b175ff. This parameter must be provided.
+#   Attached 1-wire devices can be listed using the following Linux command:
+#   ls /sys/bus/w1/devices/
+#ds18_report_time:
+#   Interval in seconds between readings. Default is 3.0, with a minimum of 1.0
+#sensor_mcu:
+#   The micro-controller to read from. Must be the host_mcu
 ```
 
 # Fans
@@ -2205,6 +2226,19 @@ pin:
 #   input speed which reliably drives the fan without stalls. Set
 #   off_below to the duty cycle corresponding to this value (for
 #   example, 12% -> 0.12) or slightly higher.
+#tachometer_pin:
+#   Tachometer input pin for monitoring fan speed. A pullup is generally
+#   required. This parameter is optional.
+#tachometer_ppr: 2
+#   When tachometer_pin is specified, this is the number of pulses per
+#   revolution of the tachometer signal. For a BLDC fan this is
+#   normally half the number of poles. The default is 2.
+#tachometer_poll_interval: 0.0015
+#   When tachometer_pin is specified, this is the polling period of the
+#   tachometer pin, in seconds. The default is 0.0015, which is fast
+#   enough for fans below 10000 RPM at 2 PPR. This must be smaller than
+#   30/(tachometer_ppr*rpm), with some margin, where rpm is the
+#   maximum speed (in RPM) of the fan.
 ```
 
 ## [heater_fan]
@@ -2223,6 +2257,9 @@ a shutdown_speed equal to max_power.
 #hardware_pwm:
 #kick_start_time:
 #off_below:
+#tachometer_pin:
+#tachometer_ppr:
+#tachometer_poll_interval:
 #   See the "fan" section for a description of the above parameters.
 #heater: extruder
 #   Name of the config section defining the heater that this fan is
@@ -2256,6 +2293,9 @@ watched component.
 #hardware_pwm:
 #kick_start_time:
 #off_below:
+#tachometer_pin:
+#tachometer_ppr:
+#tachometer_poll_interval:
 #   See the "fan" section for a description of the above parameters.
 #fan_speed: 1.0
 #   The fan speed (expressed as a value from 0.0 to 1.0) that the fan
@@ -2296,6 +2336,9 @@ additional information.
 #hardware_pwm:
 #kick_start_time:
 #off_below:
+#tachometer_pin:
+#tachometer_ppr:
+#tachometer_poll_interval:
 #   See the "fan" section for a description of the above parameters.
 #sensor_type:
 #sensor_pin:
@@ -2341,6 +2384,9 @@ with the SET_FAN_SPEED
 #hardware_pwm:
 #kick_start_time:
 #off_below:
+#tachometer_pin:
+#tachometer_ppr:
+#tachometer_poll_interval:
 #   See the "fan" section for a description of the above parameters.
 ```
 
@@ -2559,6 +2605,12 @@ cs_pin:
 #spi_software_miso_pin:
 #   See the "common SPI settings" section for a description of the
 #   above parameters.
+#chain_position:
+#chain_length:
+#   These parameters configure an SPI daisy chain. The two parameters
+#   define the stepper position in the chain and the total chain length.
+#   Position 1 corresponds to the stepper that connects to the MOSI signal.
+#   The default is to not use an SPI daisy chain.
 #interpolate: True
 #   If true, enable step interpolation (the driver will internally
 #   step at a rate of 256 micro-steps). The default is True.
@@ -2801,6 +2853,12 @@ cs_pin:
 #spi_software_miso_pin:
 #   See the "common SPI settings" section for a description of the
 #   above parameters.
+#chain_position:
+#chain_length:
+#   These parameters configure an SPI daisy chain. The two parameters
+#   define the stepper position in the chain and the total chain length.
+#   Position 1 corresponds to the stepper that connects to the MOSI signal.
+#   The default is to not use an SPI daisy chain.
 #interpolate: True
 #   If true, enable step interpolation (the driver will internally
 #   step at a rate of 256 micro-steps). The default is True.
@@ -3022,9 +3080,15 @@ lcd_type:
 #   The type of LCD chip in use. This may be "hd44780" (which is used
 #   in "RepRapDiscount 2004 Smart Controller" type displays), "st7920"
 #   (which is used in "RepRapDiscount 12864 Full Graphic Smart
-#   Controller" type displays), "uc1701" (which is used in "MKS Mini
-#   12864" type displays), "ssd1306", or "sh1106". This parameter must
-#   be provided.
+#   Controller" type displays), "emulated_st7920" (which emulate a ST7920
+#   display but won't work properly with the "st7920" display driver),
+#   "uc1701" (which is used in "MKS Mini 12864" type displays),
+#   "ssd1306", or "sh1106". This parameter must be provided.
+#hd44780_protocol_init: True
+#    Perform 8-bit/4-bit protocol initialization on an hd44780 display.
+#    This is necessary on real hd44780 devices.  However, one may
+#    need to disable this on some "clone" devices.  The default
+#    is True.
 #rs_pin:
 #e_pin:
 #d4_pin:
@@ -3042,6 +3106,17 @@ lcd_type:
 #sid_pin:
 #   The pins connected to an st7920 type lcd. These parameters must be
 #   provided when using an st7920 display.
+#en_pin:
+#spi_speed:
+#spi_software_sclk_pin:
+#spi_software_mosi_pin:
+#spi_software_miso_pin:
+#   The pins connected to an emulated_st7920 type lcd. The en_pin corresponds
+#   to the cs_pin of the st7920 type lcd, spi_software_sclk_pin corresponds
+#   to sclk_pin and spi_software_mosi_pin corresponds to sid_pin. The
+#   spi_software_miso_pin needs to be set to an unused pin of the printer
+#   mainboard as the st7920 as no MISO pin but the software spi implementation
+#   requires this pin to be configured. The default spi_speed is 1MHz.
 #cs_pin:
 #a0_pin:
 #rst_pin:

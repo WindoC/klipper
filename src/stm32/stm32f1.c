@@ -124,10 +124,16 @@ gpio_peripheral(uint32_t gpio, uint32_t mode, int pullup)
     // way from other STM32s.
     // Code below is emulating a few mappings to work like an STM32F4
     uint32_t func = (mode >> 4) & 0xf;
-    if(( gpio == GPIO('B', 8) || gpio == GPIO('B', 9)) &&
-       func == 9) { // CAN
-        stm32f1_alternative_remap(AFIO_MAPR_CAN_REMAP_Msk,
-                                  AFIO_MAPR_CAN_REMAP_REMAP2);
+    if (gpio == GPIO('B', 8) || gpio == GPIO('B', 9)) {
+        if (func == 9) {
+            // CAN
+            stm32f1_alternative_remap(AFIO_MAPR_CAN_REMAP_Msk,
+                                      AFIO_MAPR_CAN_REMAP_REMAP2);
+        } else if (func == 4) {
+            // I2C1 Alt
+            stm32f1_alternative_remap(AFIO_MAPR_I2C1_REMAP_Msk,
+                                      AFIO_MAPR_I2C1_REMAP);
+        }
     }
     // Add more as needed
 }
@@ -162,9 +168,14 @@ clock_setup(void)
     uint32_t cfgr;
     if (!CONFIG_STM32_CLOCK_REF_INTERNAL) {
         // Configure 72Mhz PLL from external crystal (HSE)
-        uint32_t div = CONFIG_CLOCK_FREQ / CONFIG_CLOCK_REF_FREQ;
         RCC->CR |= RCC_CR_HSEON;
-        cfgr = (1 << RCC_CFGR_PLLSRC_Pos) | ((div - 2) << RCC_CFGR_PLLMULL_Pos);
+        uint32_t div = CONFIG_CLOCK_FREQ / (CONFIG_CLOCK_REF_FREQ / 2);
+        cfgr = 1 << RCC_CFGR_PLLSRC_Pos;
+        if ((div & 1) && div <= 16)
+            cfgr |= RCC_CFGR_PLLXTPRE_HSE_DIV2;
+        else
+            div /= 2;
+        cfgr |= (div - 2) << RCC_CFGR_PLLMULL_Pos;
     } else {
         // Configure 72Mhz PLL from internal 8Mhz oscillator (HSI)
         uint32_t div2 = (CONFIG_CLOCK_FREQ / 8000000) * 2;

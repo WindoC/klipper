@@ -129,6 +129,10 @@ The following are common printer attributes:
   This is also available on "heater_fan", "fan_generic", and
   "controller_fan" config sections (eg,
   `printer["fan_generic my_fan"].speed`).
+- `printer.fan.rpm`: The measured fan speed in rotations per minute if
+  the fan has a tachometer_pin defined.  This is also available on
+  "heater_fan", "fan_generic", and "controller_fan" config sections
+  (eg, `printer["fan_generic my_fan"].rpm`).
 - `printer.gcode_move.gcode_position`: The current position of the
   toolhead relative to the current G-Code origin. That is, positions
   that one might directly send to a `G1` command. It is possible to
@@ -187,6 +191,11 @@ The following are common printer attributes:
 - `printer.toolhead.homed_axes`: The current cartesian axes considered
   to be in a "homed" state. This is a string containing one or more of
   "x", "y", "z".
+- `printer.toolhead.axis_minimum`,
+  `printer.toolhead.axis_maximum`: The axis travel limits (mm) after homing.
+  It is possible to access the x, y, z components of this
+  limit value (eg, `printer.toolhead.axis_minimum.x`,
+  `printer.toolhead.axis_maximum.z`).
 - `printer.toolhead.max_velocity`, `printer.toolhead.max_accel`,
   `printer.toolhead.max_accel_to_decel`,
   `printer.toolhead.square_corner_velocity`: The current printing
@@ -209,12 +218,16 @@ The following are common printer attributes:
   as "triggered" during the last QUERY_PROBE command. Note, due to the
   order of template expansion (see above), the QUERY_PROBE command
   must be run prior to the macro containing this reference.
-- `printer.configfile.config["<section>"]["<option>"]`: Returns the
-  given config file setting as read by Klipper during the last
-  software start or restart. (Any settings changed at run-time will
-  not be reflected here.) All values are returned as strings (if math
-  is to be performed on the value then it must be converted to a
-  Python number).
+- `printer.probe.last_z_result`: Returns the Z result value of the last
+  PROBE command.
+- `printer.configfile.settings.<section>.<option>`: Returns the given
+  config file setting (or default value) during the last software
+  start or restart. (Any settings changed at run-time will not be
+  reflected here.)
+- `printer.configfile.config.<section>.<option>`: Returns the given
+  raw config file setting as read by Klipper during the last software
+  start or restart. (Any settings changed at run-time will not be
+  reflected here.) All values are returned as strings.
 - `printer["gcode_macro <macro_name>"].<variable>`: The current value
   of a [gcode_macro variable](#variables).
 - `printer.webhooks.state`: Returns a string indicating the current
@@ -258,7 +271,7 @@ The following are common printer attributes:
   from the sensor.
 - `printer["lm75 <sensor_name>"].temperature`: The last read
   temperature from the sensor.
-- `printer["rpi_temperature <sensor_name>"].temperature`: The last read
+- `printer["temperature_host <sensor_name>"].temperature`: The last read
   temperature from the sensor.
 - `printer["temperature_sensor <config_name>"].temperature`: The last read
   temperature from the sensor.
@@ -283,6 +296,16 @@ The following are common printer attributes:
 - `printer.hall_filament_width_sensor.Diameter`,
   `printer.hall_filament_width_sensor.Raw`: The last read values from
   the sensor.
+- `printer.mcu.mcu_version`: The Klipper code version reported by the
+  micro-controller.
+- `printer.mcu.mcu_build_versions`: Information on the build tools
+  used to generate the micro-controller code (as reported by the
+  micro-controller).
+- `printer.mcu.mcu_constants.<constant_name>`: Compile time constants
+  reported by the micro-controller. The available constants may differ
+  between micro-controller architectures and with each code revision.
+- `printer.mcu.last_stats.<statistics_name>`: Statistics information
+  on the micro-controller connection.
 
 The above list is subject to change - if using an attribute be sure to
 review the [Config Changes document](Config_Changes.md) when upgrading
