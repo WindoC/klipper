@@ -18,6 +18,7 @@ class JamSensor:
         self.timer = config.getfloat( "timer", 1.0, above=0.0 )
         self.extruder_name = config.get("extruder", None)
         self.extruder = None
+        self.mcu = None
         self.base_usage = config.getfloat( "base_usage", None, above=0.0)
         self.jam_gcode = config.get("jam_gcode", None)
         self.filament_usage_last = 0.0
@@ -33,11 +34,12 @@ class JamSensor:
 
     def _handle_ready(self):
         self.extruder = self.printer.lookup_object( self.extruder_name )
+        self.mcu = self.extruder.stepper.get_mcu()
         if self.base_usage is None:
             logging.exception("base_usage must defined")
             self.enable = False
         else:
-            self.filament_usage_last = self.get_filament_usage()
+            #self.filament_usage_last = self.get_filament_usage(self.mcu.estimated_print_time(self.reactor.monotonic()))
             self.pause_resume = self.printer.lookup_object( "pause_resume", None )
             if self.pause_resume is None:
                 logging.exception( "pause_resume must define" )
@@ -49,7 +51,7 @@ class JamSensor:
 
     def _signal_handler(self, eventtime, state):
         if self.enable and state == 1:
-            new_usage = self.get_filament_usage()
+            new_usage = self.get_filament_usage(eventtime)
             delta_usage = new_usage - self.filament_usage_last
             self.filament_usage_last = new_usage
             if self.debug:
@@ -63,7 +65,7 @@ class JamSensor:
     def _timer_handler(self, eventtime):
         add_timer = self.timer
         if self.enable:
-            new_usage = self.get_filament_usage()
+            new_usage = self.get_filament_usage(eventtime)
             delta_usage = new_usage - self.filament_usage_last
             if self.jam_triggered and self.timer_usage_last != new_usage:   # ignore when it's not move
                 if self.debug:
@@ -87,10 +89,11 @@ class JamSensor:
             self.timer_usage_last = new_usage
         return eventtime + add_timer
 
-    def get_filament_usage(self):
+    def get_filament_usage(self,eventtime):
         theout = 0.0
         if self.extruder:
-            theout = self.extruder.stepper.get_commanded_position()
+            #logging.debug( "%s(%s): eventtime | eventtime = %s", self.mname, self.name, eventtime, )
+            theout = self.extruder.find_past_position(self.mcu.estimated_print_time(eventtime))
         return float(theout)
 
     def _exec_gcode(self, script):
@@ -108,7 +111,7 @@ class JamSensor:
         gcmd.respond_info( "%s(%s): timer = %.2f | base_usage = %.2f | enable = %s | debug = %s | action = %s"
             % ( self.mname, self.name, self.timer, self.base_usage, self.enable, self.debug, self.action, ) )
         # reset some counter
-        self.timer_usage_last = self.filament_usage_last = self.get_filament_usage()
+        self.timer_usage_last = self.filament_usage_last = 0.0
 
 
 def load_config_prefix(config):
